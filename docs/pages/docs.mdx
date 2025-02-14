@@ -5,54 +5,243 @@ description: Get started with the OSS LLMOps Stack following this step-by-step t
 
 # Get Started
 
+<Callout type="info">
+
+This guide uses the OpenAI Python client to make requests to LiteLLM Proxy. This will work across all languages as LiteLLM Proxy is OpenAI compatible.
+
+</Callout>
+
+This guide demonstrates how to use LiteLLM Proxy with Langfuse
+
+- Use LiteLLM Proxy for calling 100+ LLMs in OpenAI format
+- Use Langfuse for LLM Observability, Evals, and Prompt Management
+
+In this guide we will setup LiteLLM Proxy to make requests to OpenAI, Anthropic, Bedrock and automatically log traces to Langfuse.
+
+Read the [overview page](/) to learn more about the stack.
+
+## Setup
+
 <Steps>
 
-### Clone the repo
+### Setup Langfuse
 
-```bash filename="Terminal"
-git clone https://github.com/langfuse/oss-llmops-stack.git
-cd oss-llmops-stack
+Deploy Langfuse ([docker compose](https://langfuse.com/self-hosting/local), [helm on k8s](https://langfuse.com/self-hosting/kubernetes-helm)) or create a free account on [Langfuse Cloud](https://cloud.langfuse.com).
+
+Create a new project to obtain credentials during setup.
+
+### Setup LiteLLM Proxy
+
+**Define .env variables** on the container that litellm proxy is running on. This example uses OpenAI, Anthropic, Bedrock and Langfuse to illustrate the integration. You can use any of the models supported by LiteLLM Proxy.
+
+```bash filename=".env"
+## LLM API Keys
+OPENAI_API_KEY=sk-proj-1234567890
+ANTHROPIC_API_KEY=sk-ant-api03-1234567890
+AWS_ACCESS_KEY_ID=1234567890
+AWS_SECRET_ACCESS_KEY=1234567890
+
+# LiteLLM Master Key
+LITELLM_MASTER_KEY=sk-master-1234567890
+
+## Langfuse Logging
+LANGFUSE_PUBLIC_KEY="pk-lf-xxxx9"
+LANGFUSE_SECRET_KEY="sk-lf-xxxx9"
+LANGFUSE_HOST="https://us.cloud.langfuse.com"
 ```
 
-### Add env
+**Setup LiteLLM Proxy Config**
 
-Add OpenAI key to `docker-compose/litellm.env`
+See [docs](https://docs.litellm.ai/docs/proxy/configs) for more details on the config file.
 
-### Run Stack
+```yaml filename="litellm_config.yaml"
+# Configure models to use
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: claude-3-5-sonnet-20241022
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: us.amazon.nova-micro-v1:0
+    litellm_params:
+      model: bedrock/us.amazon.nova-micro-v1:0
+      aws_access_key_id: os.environ/AWS_ACCESS_KEY_ID
+      aws_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
 
-```bash filename="Terminal"
-cd docker-compose
-docker compose up
+# Enabled Langfuse logging
+litellm_settings:
+  callbacks: ["langfuse"]
 ```
 
-### Make requests
+</Steps>
 
-```bash filename="Terminal"
-curl -X POST 'http://0.0.0.0:4000/chat/completions' \
-    -H 'Content-Type: application/json' \
-    -H 'Authorization: Bearer sk-1234' \
-    -d '{
-        "model": "o3-mini",
-        "messages": [
-        {
-            "role": "system",
-            "content": "You are a helpful math tutor. Guide the user through the solution step by step."
-        },
+## Simple End-to-End Example
+
+<Steps>
+
+### Make LLM Requests to LiteLLM Proxy
+
+Use any OpenAI compatible client to make requests to LiteLLM Proxy. Authenticate using the master key or a LiteLLM Virtual Key.
+
+When switching between models, you only need to change the `model` parameter.
+
+<Tabs items={["Example: OpenAI gpt-4o", "Example: Amazon Nova", "Example: Anthropic Claude 3.5 Sonnet"]}>
+
+<Tab>
+
+```python filename="main.py"
+# Setup LiteLLM Proxy Base URL
+LITELLM_PROXY_BASE_URL="http://0.0.0.0:4000"
+
+# Use the master key for authentication, can be replaced with a virtual key
+LITELLM_VIRTUAL_KEY="sk-master-1234567890"
+
+# Use regular OpenAI client
+import openai
+client = openai.OpenAI(
+    api_key=LITELLM_VIRTUAL_KEY,
+    base_url=LITELLM_PROXY_BASE_URL
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages = [
         {
             "role": "user",
-            "content": "how can I solve 8x + 7 = -23"
+            "content": "what is Langfuse?"
         }
-        ]
-    }'
+    ],
+)
 ```
+
+</Tab>
+
+<Tab>
+
+```python filename="main.py"
+# Setup LiteLLM Proxy Base URL
+LITELLM_PROXY_BASE_URL="http://0.0.0.0:4000"
+
+# Use the master key for authentication, can be replaced with a virtual key
+LITELLM_VIRTUAL_KEY="sk-master-1234567890"
+
+# Use regular OpenAI client
+import openai
+client = openai.OpenAI(
+    api_key=LITELLM_VIRTUAL_KEY,
+    base_url=LITELLM_PROXY_BASE_URL
+)
+
+response = client.chat.completions.create(
+    model="us.amazon.nova-micro-v1:0",
+    messages = [
+        {
+            "role": "user",
+            "content": "what is Langfuse?"
+        }
+    ],
+)
+```
+
+</Tab>
+
+<Tab>
+
+```python filename="main.py"
+# Setup LiteLLM Proxy Base URL
+LITELLM_PROXY_BASE_URL="http://0.0.0.0:4000"
+
+# Use the master key for authentication, can be replaced with a virtual key
+LITELLM_VIRTUAL_KEY="sk-master-1234567890"
+
+# Use regular OpenAI client
+import openai
+client = openai.OpenAI(
+    api_key=LITELLM_VIRTUAL_KEY,
+    base_url=LITELLM_PROXY_BASE_URL
+)
+
+response = client.chat.completions.create(
+    model="claude-3-5-sonnet-20241022",
+    messages = [
+        {
+            "role": "user",
+            "content": "what is Langfuse?"
+        }
+    ],
+)
+```
+
+</Tab>
+
+</Tabs>
 
 ### See resulting traces in Langfuse
 
-Langfuse is running on http://localhost:3000
+LiteLLM will send the request / response, model, tokens (input + output), cost to Langfuse.
 
-Default credentials:
+In the Langfuse UI you will see traces like the following:
 
-- Email: admin@example.com
-- Password: your-secure-password
+<div className="rounded-lg border overflow-hidden mt-6">
+  ![Langfuse Trace](/images/litellm_proxy_langfuse.png)
+</div>
 
 </Steps>
+
+## Pass additional Langfuse parameters
+
+[Langfuse Tracing](https://langfuse.com/docs/tracing) offers many customization options to accurately capture the nature of your application.
+
+LiteLLM Proxy supports passing additional Langfuse parameters to the client side request. See full list of supported langfuse params [here](https://docs.litellm.ai/docs/observability/langfuse_integration).
+
+```python filename="main.py"
+import openai
+client = openai.OpenAI(
+    api_key=LITELLM_VIRTUAL_KEY,
+    base_url=LITELLM_PROXY_BASE_URL
+)
+
+response = client.chat.completions.create(
+    model="us.amazon.nova-micro-v1:0",
+    messages = [
+        {
+            "role": "user",
+            "content": "what is Langfuse?"
+        }
+    ],
+    # Pass additional Langfuse parameters in the extra_body
+    extra_body={
+        "metadata": {
+            "generation_id": "1234567890",
+            "trace_id": "567890",
+            "trace_user_id": "user_1234567890",
+            "tags": ["tag1", "tag2"]
+        }
+    }
+)
+```
+
+## Learn more
+
+This is it for a simple end-to-end example. You can explore all of LiteLLM and Langfuse features in their respective documentation.
+
+**LiteLLM** ([GitHub](https://github.com/BerriAI/litellm))
+
+- [Unified LLM API](https://docs.litellm.ai/docs/providers)
+- [Failover & Load Balancing](https://docs.litellm.ai/docs/proxy/reliability)
+- [Logging & Request Tracking](https://docs.litellm.ai/docs/proxy/logging)
+- [Model Access Controls](https://docs.litellm.ai/docs/proxy/virtual_keys)
+- [Budgets & Rate Limits](https://docs.litellm.ai/docs/proxy/users)
+- [Integration with Prompt Management](https://docs.litellm.ai/docs/proxy/prompt_management)
+
+**Langfuse** ([GitHub](https://github.com/langfuse/langfuse))
+
+- [Tracing & Observability](https://langfuse.com/docs/tracing)
+- [Prompt Management](https://langfuse.com/docs/prompts/get-started)
+- [Evaluations](https://langfuse.com/docs/scores/overview)
+- [Datasets](https://langfuse.com/docs/datasets/overview)
+- [LLM Playground](https://langfuse.com/docs/playground)
+- [API Reference](https://langfuse.com/docs/api)
