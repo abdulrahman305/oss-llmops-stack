@@ -34,6 +34,9 @@ export default {
   footer: {
     content: "The OSS LLMOps Stack",
   },
+  search: {
+    component: null,
+  },
   components: {
     Callout,
     Tabs,
