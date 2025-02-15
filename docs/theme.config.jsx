@@ -13,12 +13,13 @@ export default {
     "https://github.com/langfuse/oss-llmops-stack/tree/main/docs",
 
   head() {
-    const { url } = useRouter();
     const { frontMatter } = useConfig();
 
     const title = frontMatter.title
-      ? `${frontMatter.title} - The OSS LLMOps Stack`
-      : "The OSS LLMOps Stack";
+      ? frontMatter.title.includes("LLMOps Stack")
+        ? frontMatter.title
+        : `${frontMatter.title} - OSS LLMOps Stack`
+      : "Open Source LLMOps Stack";
     const description = frontMatter.description;
     const ogImage = frontMatter.ogImage
       ? `${HOSTNAME}${frontMatter.ogImage}`
@@ -30,15 +31,11 @@ export default {
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        {/* Canonical URL */}
-        {url && <link rel="canonical" href={url} />}
-
         <title>{title}</title>
         {description && <meta name="description" content={description} />}
         <link rel="icon" href="/favicon.ico" />
 
         {/* Open Graph Tags */}
-        <meta property="og:url" content={url} />
         <meta property="og:title" content={title} />
         {description && (
           <meta property="og:description" content={description} />
